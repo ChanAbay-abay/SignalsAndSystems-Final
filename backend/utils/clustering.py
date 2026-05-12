@@ -1,45 +1,45 @@
 import numpy as np
-from sklearn.cluster import DBSCAN
+from scipy.cluster.hierarchy import linkage, fcluster
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import davies_bouldin_score
+from sklearn.metrics import silhouette_score
 
 
-def ecg_dbscan(X_features, eps_range=(0.3, 1.0), num_eps=300, min_samples=3):
+def ecg_hierarchical_clustering(X_features, n_clusters_range=(2, 10)):
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_features)
 
-    eps_values = np.linspace(eps_range[0], eps_range[1], num_eps)
-    db_scores = []
-    valid_eps = []
+    Z = linkage(X_scaled, 'ward')
 
-    for eps in eps_values:
-        db = DBSCAN(eps=eps, min_samples=min_samples).fit(X_scaled)
-        labels = db.labels_
-        unique_clusters = np.unique(labels[labels != -1])
-        if len(unique_clusters) >= 2:
-            mask = labels != -1
-            score = davies_bouldin_score(X_scaled[mask], labels[mask])
-            db_scores.append(score)
-            valid_eps.append(eps)
+    sil_scores = []
+    valid_k = []
+    best_score = -2.0
+    best_k = n_clusters_range[0]
+    best_labels = None
 
-    if not db_scores:
-        best_eps = 0.5
-        final_db = DBSCAN(eps=best_eps, min_samples=min_samples).fit(X_scaled)
-        return final_db.labels_, [0.0], [best_eps], best_eps, scaler
+    for k in range(n_clusters_range[0], n_clusters_range[1] + 1):
+        labels = fcluster(Z, k, criterion='maxclust')
+        try:
+            score = silhouette_score(X_scaled, labels)
+            sil_scores.append(score)
+            valid_k.append(k)
+            if score > best_score:
+                best_score = score
+                best_k = k
+                best_labels = labels
+        except ValueError:
+            pass
 
-    best_eps = valid_eps[int(np.argmin(db_scores))]
-    final_db = DBSCAN(eps=best_eps, min_samples=min_samples).fit(X_scaled)
-    return final_db.labels_, db_scores, valid_eps, best_eps, scaler
+    if best_labels is None:
+        best_k = n_clusters_range[0]
+        best_labels = fcluster(Z, best_k, criterion='maxclust')
+        sil_scores = [0.0]
+        valid_k = [best_k]
 
-
-def apply_dbscan(X_features, scaler, best_eps, min_samples=3):
-    X_scaled = scaler.transform(X_features)
-    db = DBSCAN(eps=best_eps, min_samples=min_samples).fit(X_scaled)
-    return db.labels_
+    return best_labels, sil_scores, valid_k, best_k, scaler
 
 
 def get_normal_cluster_label(labels, X_features):
-    unique = np.unique(labels[labels != -1])
+    unique = np.unique(labels)
     if len(unique) == 0:
         return None
     means = [np.mean(X_features[labels == i, 0]) for i in unique]

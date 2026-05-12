@@ -35,31 +35,32 @@ function PlotCard({ title, children }: { title: string; children: React.ReactNod
   )
 }
 
-function EpsSweepPlot({ data }: { data: TrainingData['eps_sweep'] }) {
+function KSweepPlot({ data }: { data: TrainingData['k_sweep'] }) {
   return (
     <Plot
       data={[
         {
-          x: data.eps_values,
-          y: data.dbi_scores,
+          x: data.k_values,
+          y: data.silhouette_scores,
           type: 'scatter',
-          mode: 'lines',
+          mode: 'lines+markers',
           line: { color: '#a855f7', width: 1.5 },
-          name: 'DBI Score',
+          marker: { size: 6 },
+          name: 'Silhouette Score',
         },
         {
-          x: [data.best_eps, data.best_eps],
-          y: [Math.min(...data.dbi_scores), Math.max(...data.dbi_scores)],
+          x: [data.best_k, data.best_k],
+          y: [Math.min(...data.silhouette_scores), Math.max(...data.silhouette_scores)],
           type: 'scatter',
           mode: 'lines',
           line: { color: '#ef4444', dash: 'dash', width: 2 },
-          name: `Best EPS: ${data.best_eps.toFixed(3)}`,
+          name: `Optimal K: ${data.best_k}`,
         },
       ]}
       layout={{
         ...baseLayout,
-        xaxis: { ...baseLayout.xaxis, title: 'Epsilon' },
-        yaxis: { ...baseLayout.yaxis, title: 'Davies-Bouldin Index' },
+        xaxis: { ...baseLayout.xaxis, title: 'Number of Clusters (K)', dtick: 1 },
+        yaxis: { ...baseLayout.yaxis, title: 'Silhouette Score' },
         height: 380,
       }}
       config={{ responsive: true, displayModeBar: false }}
@@ -339,8 +340,8 @@ export default function VisualizationGrid() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <PlotCard title="1. Hyperparameter Sweep: DBI vs EPS">
-        <EpsSweepPlot data={trainingData.eps_sweep} />
+      <PlotCard title="1. Hyperparameter Sweep: Silhouette Score vs K">
+        <KSweepPlot data={trainingData.k_sweep} />
       </PlotCard>
 
       <PlotCard title="2. Normal Database Template">
@@ -351,7 +352,7 @@ export default function VisualizationGrid() {
         <RSquaredHistogram values={trainingData.r_squared_distribution.values} />
       </PlotCard>
 
-      <PlotCard title="4. DBSCAN Clusters (R² vs Variance)">
+      <PlotCard title="4. Hierarchical Clusters (R² vs Variance)">
         <ClustersScatterPlot data={trainingData.clusters} analysisResult={analysisResult} />
       </PlotCard>
 

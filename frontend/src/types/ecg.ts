@@ -1,7 +1,7 @@
-export interface EpsSweepData {
-  eps_values: number[]
-  dbi_scores: number[]
-  best_eps: number
+export interface KSweepData {
+  k_values: number[]
+  silhouette_scores: number[]
+  best_k: number
 }
 
 export interface NormalTemplateData {
@@ -35,14 +35,14 @@ export interface Metrics {
 }
 
 export interface TrainingData {
-  eps_sweep: EpsSweepData
+  k_sweep: KSweepData
   normal_template: NormalTemplateData
   r_squared_distribution: { values: number[] }
   clusters: ClusterData
   morphology: MorphologyData
   r_squared_strip: RSquaredStripData
   metrics: Metrics
-  best_eps: number
+  best_k: number
 }
 
 export interface AnalysisResult {
