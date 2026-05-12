@@ -1,4 +1,5 @@
 import Plot from './Plot'
+import InfoTooltip from './InfoTooltip'
 import { useECGStore } from '../store/ecgStore'
 import type { TrainingData, AnalysisResult } from '../types/ecg'
 
@@ -11,7 +12,7 @@ const baseLayout: Partial<Plotly.Layout> = {
   plot_bgcolor: PLOT_BG,
   paper_bgcolor: PAPER_BG,
   font: { color: FONT_COLOR, size: 11 },
-  margin: { t: 40, b: 120, l: 55, r: 20 },
+  margin: { t: 40, b: 90, l: 55, r: 20 },
   xaxis: { gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
   yaxis: { gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
   legend: {
@@ -26,10 +27,28 @@ const baseLayout: Partial<Plotly.Layout> = {
   },
 }
 
-function PlotCard({ title, children }: { title: string; children: React.ReactNode }) {
+const GRAPH_INFO: Record<string, string> = {
+  ksweep: `The model needs to decide how many groups (clusters) to split the heartbeats into. It tries every value of K from 2 to 10 and scores each using the Silhouette Score — a measure of how well-separated the groups are. A score closer to 1 means the clusters are tight and distinct; closer to 0 means they overlap. The red dashed line marks the K with the best score, which is used for all clustering.`,
+
+  template: `This is the "reference heartbeat" the model uses. It is built by averaging all normal (healthy) training beats together. The blue line is that average — a smooth, typical ECG wave showing the P-wave, QRS complex, and T-wave. The faint grey lines behind it are individual normal beats. Any new signal is compared against this template to measure how similar it is.`,
+
+  rsqdist: `R² (R-squared, or the coefficient of determination) measures how closely each heartbeat's shape matches the normal template — 1 means a perfect match, 0 means no similarity at all. This histogram shows the spread of R² values across all training signals. If you see two bumps (a bimodal shape), it means normal and irregular beats naturally separate into two groups, which is exactly what the model exploits.`,
+
+  clusters: `Each dot represents one training heartbeat, plotted using its two features: R² similarity (x-axis, higher = more normal-looking) and signal variance/energy (y-axis). Blue dots are the cluster the model identified as Normal; red dots are Irregular. If you upload or select a signal, a star shows where it falls in this space — close to blue means it looks normal, close to red means it looks irregular.`,
+
+  morphology: `A direct side-by-side shape comparison. The solid line is the mean normal heartbeat template. The dashed line is either your uploaded signal or a sample irregular beat. Irregular heartbeats often show differences like a wider or taller QRS spike, a missing P-wave, extra bumps, or a shifted baseline — all visible as a mismatch between the two lines.`,
+
+  rstrip: `This box-and-dot plot shows the full spread of R² similarity scores split by class. Normal beats (blue) should cluster near 1 — they look like the template. Irregular beats (red) scatter lower — they deviate from it. The more separated these two groups are vertically, the more reliably R² alone distinguishes normal from irregular heartbeats. Stars show where an uploaded signal's score lands relative to each group.`,
+}
+
+
+function PlotCard({ title, info, children }: { title: string; info: string; children: React.ReactNode }) {
   return (
     <div className="bg-slate-800 rounded-xl p-4">
-      <h3 className="text-slate-300 font-medium text-sm mb-3">{title}</h3>
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-slate-300 font-medium text-sm">{title}</h3>
+        <InfoTooltip text={info} />
+      </div>
       {children}
     </div>
   )
@@ -61,7 +80,7 @@ function KSweepPlot({ data }: { data: TrainingData['k_sweep'] }) {
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'Number of Clusters (K)', dtick: 1 },
         yaxis: { ...baseLayout.yaxis, title: 'Silhouette Score' },
-        height: 380,
+        height: 460,
       }}
       config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%' }}
@@ -96,7 +115,7 @@ function NormalTemplatePlot({ data }: { data: TrainingData['normal_template'] })
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'Sample Index' },
         yaxis: { ...baseLayout.yaxis, title: 'Amplitude' },
-        height: 380,
+        height: 460,
       }}
       config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%' }}
@@ -120,7 +139,7 @@ function RSquaredHistogram({ values }: { values: number[] }) {
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'R² (Similarity)' },
         yaxis: { ...baseLayout.yaxis, title: 'Frequency' },
-        height: 380,
+        height: 460,
         bargap: 0.05,
       }}
       config={{ responsive: true, displayModeBar: false }}
@@ -189,7 +208,7 @@ function ClustersScatterPlot({
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'R² (Similarity)' },
         yaxis: { ...baseLayout.yaxis, title: 'Variance (Energy)' },
-        height: 380,
+        height: 460,
       }}
       config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%' }}
@@ -245,7 +264,7 @@ function MorphologyPlot({
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'Sample Index' },
         yaxis: { ...baseLayout.yaxis, title: 'Amplitude' },
-        height: 380,
+        height: 460,
       }}
       config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%' }}
@@ -318,7 +337,7 @@ function RSquaredStripPlot({
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'Heartbeat Type' },
         yaxis: { ...baseLayout.yaxis, title: 'R² (Similarity)' },
-        height: 380,
+        height: 460,
         showlegend: false,
       }}
       config={{ responsive: true, displayModeBar: false }}
@@ -340,27 +359,27 @@ export default function VisualizationGrid() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <PlotCard title="1. Hyperparameter Sweep: Silhouette Score vs K">
+      <PlotCard title="1. Hyperparameter Sweep: Silhouette Score vs K" info={GRAPH_INFO.ksweep}>
         <KSweepPlot data={trainingData.k_sweep} />
       </PlotCard>
 
-      <PlotCard title="2. Normal Database Template">
+      <PlotCard title="2. Normal Database Template" info={GRAPH_INFO.template}>
         <NormalTemplatePlot data={trainingData.normal_template} />
       </PlotCard>
 
-      <PlotCard title="3. R² Similarity Distribution">
+      <PlotCard title="3. R² Similarity Distribution" info={GRAPH_INFO.rsqdist}>
         <RSquaredHistogram values={trainingData.r_squared_distribution.values} />
       </PlotCard>
 
-      <PlotCard title="4. Hierarchical Clusters (R² vs Variance)">
+      <PlotCard title="4. Hierarchical Clusters (R² vs Variance)" info={GRAPH_INFO.clusters}>
         <ClustersScatterPlot data={trainingData.clusters} analysisResult={analysisResult} />
       </PlotCard>
 
-      <PlotCard title="5. Morphology Comparison">
+      <PlotCard title="5. Morphology Comparison" info={GRAPH_INFO.morphology}>
         <MorphologyPlot data={trainingData.morphology} analysisResult={analysisResult} />
       </PlotCard>
 
-      <PlotCard title="6. R² Values: Normal vs Irregular">
+      <PlotCard title="6. R² Values: Normal vs Irregular" info={GRAPH_INFO.rstrip}>
         <RSquaredStripPlot data={trainingData.r_squared_strip} analysisResult={analysisResult} />
       </PlotCard>
     </div>
