@@ -1,6 +1,6 @@
 # ECG Anomaly Detection System
 
-Unsupervised ECG heartbeat classification using DBSCAN clustering and Pearson correlation features, built on the ECG5000 dataset. The system trains entirely without labels, identifies a "normal" heartbeat cluster, and classifies new signals at inference time using nearest-centroid assignment.
+Unsupervised ECG heartbeat classification using Hierarchical Agglomerative Clustering and Pearson correlation features, built on the ECG5000 dataset. The system trains entirely without labels, identifies a "normal" heartbeat cluster, and classifies new signals at inference time using nearest-centroid assignment.
 
 ---
 
@@ -10,7 +10,7 @@ Unsupervised ECG heartbeat classification using DBSCAN clustering and Pearson co
 2. [Dataset](#dataset)
 3. [Signal Processing Pipeline](#signal-processing-pipeline)
 4. [Feature Extraction](#feature-extraction)
-5. [DBSCAN Clustering & Hyperparameter Sweep](#dbscan-clustering--hyperparameter-sweep)
+5. [Hierarchical Clustering & Hyperparameter Sweep](#hierarchical-clustering--hyperparameter-sweep)
 6. [Inference: Nearest-Centroid Classification](#inference-nearest-centroid-classification)
 7. [Evaluation Metrics](#evaluation-metrics)
 8. [Project Structure](#project-structure)
@@ -25,11 +25,11 @@ The goal is to detect anomalous ECG heartbeats **without using labels during tra
 
 1. Filters raw ECG signals with a bandpass filter to remove noise and baseline wander.
 2. Extracts two features per signal: Pearson R² similarity to the mean normal template, and signal variance (energy).
-3. Runs a DBSCAN epsilon sweep, selecting the best `eps` using the Davies-Bouldin Index (DBI).
+3. Runs Hierarchical Agglomerative Clustering (Ward linkage) sweeping k from 2 to 10, selecting the best `k` using the Silhouette Score.
 4. Identifies the "normal" cluster as the one with the highest mean R² — high similarity to the normal template.
 5. At inference time, assigns a new signal to the closest cluster centroid (normal vs. irregular) in scaled feature space.
 
-The frontend visualises each step of the pipeline interactively, including the DBI sweep, the normal template, the cluster scatter plot, morphology comparison, and a step-by-step algorithm walkthrough for any uploaded or sample signal.
+The frontend visualises each step of the pipeline interactively, including the Silhouette Score sweep, the normal template, the cluster scatter plot, morphology comparison, and a step-by-step algorithm walkthrough for any uploaded or sample signal.
 
 ---
 
@@ -53,6 +53,8 @@ Each signal is one heartbeat window of 140 samples, recorded at approximately 25
 | 5     | UB/FB           | 2           |
 
 For this project, class `1` is treated as **Normal** and all other classes as **Irregular**. The model never sees these labels during training — they are only used post-hoc to evaluate performance.
+
+The 10 sample signals exposed in the UI are drawn directly from `ECG5000_TEST.arff`: the first 5 normal heartbeats and first 5 irregular heartbeats in the test split. These are genuinely unseen signals — the model never trains on them.
 
 ---
 
@@ -113,59 +115,58 @@ Variance captures the amplitude spread / energy of the heartbeat. Abnormal beats
 
 ---
 
-## DBSCAN Clustering & Hyperparameter Sweep
+## Hierarchical Clustering & Hyperparameter Sweep
 
-### Why DBSCAN?
+### Why Hierarchical Agglomerative Clustering?
 
-DBSCAN (Density-Based Spatial Clustering of Applications with Noise) is chosen because:
-- It does not require specifying the number of clusters in advance
-- It naturally handles noise/outliers (labelled `-1`) without forcing them into a cluster
-- It can find non-convex cluster shapes
+Hierarchical Agglomerative Clustering (HAC) with Ward linkage is chosen because:
+- It builds a full hierarchy of merges (dendrogram), making the cluster structure interpretable
+- Ward linkage minimises within-cluster variance at each merge step, producing compact, well-separated clusters
+- The number of clusters `k` can be selected after the fact by cutting the dendrogram, enabling a principled sweep without re-running the algorithm
 
-### Epsilon Sweep
+### K Sweep with Silhouette Score
 
-The key hyperparameter is `eps` — the neighbourhood radius. Rather than guessing, the system sweeps 300 values of `eps` from 0.3 to 1.0 and selects the best using the **Davies-Bouldin Index (DBI)**:
+The key hyperparameter is `k` — the number of clusters. Rather than guessing, the system computes a single linkage matrix and sweeps `k` from 2 to 10, selecting the best using the **Silhouette Score**:
 
 ```
-DBI = (1/k) * Σ max_{i≠j} [ (σᵢ + σⱼ) / d(cᵢ, cⱼ) ]
+S(i) = (b(i) - a(i)) / max(a(i), b(i))
 ```
 
-Where σᵢ is the average intra-cluster distance and d(cᵢ, cⱼ) is the distance between centroids. **Lower DBI = better-separated, more compact clusters.**
-
-Only `eps` values that produce at least 2 valid clusters (no noise-only solutions) are evaluated. The `eps` that minimises DBI is selected as `best_eps`.
+Where `a(i)` is the mean intra-cluster distance for point i, and `b(i)` is the mean distance to the nearest other cluster. The overall Silhouette Score is the mean of S(i) across all points. **Higher score = better-defined, more separated clusters** (range: −1 to 1).
 
 ```python
 # backend/utils/clustering.py
-for eps in np.linspace(0.3, 1.0, 300):
-    labels = DBSCAN(eps=eps, min_samples=3).fit(X_scaled).labels_
-    if len(np.unique(labels[labels != -1])) >= 2:
-        score = davies_bouldin_score(X_scaled[labels != -1], labels[labels != -1])
-        # track best
+Z = linkage(X_scaled, 'ward')
+
+for k in range(2, 11):
+    labels = fcluster(Z, k, criterion='maxclust')
+    score = silhouette_score(X_scaled, labels)
+    # track best
 ```
 
-Features are standardised with `StandardScaler` before clustering so that R² and variance contribute equally regardless of their natural scale.
+Features are standardised with `StandardScaler` before clustering so that R² and variance contribute equally regardless of their natural scale. The linkage matrix is computed once and `fcluster` cuts it at each `k`, making the sweep efficient.
 
 ### Identifying the Normal Cluster
 
-After clustering with `best_eps`, the cluster with the **highest mean R²** is designated as the Normal cluster. Since normal heartbeats have high correlation with the normal template by definition, this heuristic reliably identifies the correct cluster without using any labels.
+After clustering with `best_k`, the cluster with the **highest mean R²** is designated as the Normal cluster. Since normal heartbeats have high correlation with the normal template by definition, this heuristic reliably identifies the correct cluster without using any labels.
 
 ---
 
 ## Inference: Nearest-Centroid Classification
 
-At inference time, re-running DBSCAN on a small number of new signals is unreliable — a single point can never form a cluster with `min_samples=3`. Instead, inference uses **nearest-centroid classification** in the scaled feature space:
+At inference time, re-running hierarchical clustering on a small number of new signals is unreliable — cluster structure is undefined for a single point. Instead, inference uses **nearest-centroid classification** in the scaled feature space:
 
 1. Compute the centroids of the Normal and Irregular training clusters (in StandardScaler-transformed space).
 2. For a new signal, extract its features and apply the same scaler transform.
 3. Assign it to whichever centroid it is closer to (Euclidean distance).
 
 ```python
-dist_normal   = np.linalg.norm(X_scaled - normal_centroid, axis=1)
+dist_normal    = np.linalg.norm(X_scaled - normal_centroid, axis=1)
 dist_irregular = np.linalg.norm(X_scaled - irregular_centroid, axis=1)
 prediction = (dist_normal <= dist_irregular).astype(int)  # 1 = Normal, 0 = Irregular
 ```
 
-This generalises correctly to unseen data because the decision boundary is defined by the full cluster geometry, not by the strict density threshold used during training.
+This generalises correctly to unseen data because the decision boundary is defined by the full cluster geometry learned during training.
 
 ---
 
@@ -182,14 +183,14 @@ Predictions are evaluated against the ground-truth class labels (1 = Normal, oth
 
 A 2×2 confusion matrix is always returned with `labels=[0, 1]` to ensure consistent layout even when a test set contains only one class.
 
-Training set performance with the optimal `eps ≈ 0.309`:
+Training set performance with optimal `k = 3`:
 
 | Metric    | Score  |
 |-----------|--------|
 | Accuracy  | ~93%   |
-| Precision | ~99.6% |
-| Recall    | ~88.4% |
-| F1-Score  | ~93.6% |
+| Precision | ~99%   |
+| Recall    | ~88%   |
+| F1-Score  | ~93%   |
 
 ---
 
@@ -212,7 +213,7 @@ SignalsAndSystems-Final/
 │   │   └── ecg_analyzer.py       # Core model: fit(), analyze_signals(), _classify_features()
 │   └── utils/
 │       ├── signal_processing.py  # bandpass_filter(), get_correlation_features()
-│       ├── clustering.py         # ecg_dbscan(), get_normal_cluster_label()
+│       ├── clustering.py         # ecg_hierarchical_clustering(), get_normal_cluster_label()
 │       └── data_loader.py        # ARFF / CSV parsing
 │
 └── frontend/
@@ -231,7 +232,7 @@ SignalsAndSystems-Final/
             ├── Header.tsx
             ├── Dashboard.tsx     # Layout: Upload → Graphs → Results → Walkthrough
             ├── SignalUpload.tsx   # Drag-and-drop upload + sample signal buttons
-            ├── VisualizationGrid.tsx  # 6 Plotly charts (DBI sweep, clusters, morphology…)
+            ├── VisualizationGrid.tsx  # 6 Plotly charts (silhouette sweep, clusters, morphology…)
             ├── ResultsPanel.tsx  # 2-column metrics + confusion matrix
             ├── AlgorithmWalkthrough.tsx  # Step-by-step signal analysis view
             └── Plot.tsx          # Plotly.js wrapper (replaces react-plotly.js for React 19)
@@ -276,8 +277,8 @@ The `/api/analyze` endpoint accepts either a multipart file upload (`.arff` or `
 
 **Backend**
 - Python / Flask — REST API
-- NumPy / SciPy — signal filtering and feature computation
-- scikit-learn — DBSCAN, StandardScaler, Davies-Bouldin Index, metrics
+- NumPy / SciPy — signal filtering, feature computation, and Ward linkage (`scipy.cluster.hierarchy`)
+- scikit-learn — StandardScaler, Silhouette Score, evaluation metrics
 - pandas — ARFF/CSV parsing
 
 **Frontend**
