@@ -17,7 +17,7 @@ def create_app():
     print('Training ECG analyzer on ECG5000_TRAIN.arff ...')
     analyzer = ECGAnalyzer(train_path, test_path)
     analyzer.fit()
-    print(f'Training complete. Best EPS: {analyzer.best_eps:.4f}')
+    print(f'Training complete. Best K: {analyzer.best_k}')
 
     app.config['ANALYZER'] = analyzer
     app.register_blueprint(bp)

@@ -4,7 +4,7 @@ from sklearn.metrics import (
 )
 
 from utils.signal_processing import bandpass_filter, get_correlation_features
-from utils.clustering import ecg_dbscan, get_normal_cluster_label
+from utils.clustering import ecg_hierarchical_clustering, get_normal_cluster_label
 from utils.data_loader import load_arff
 
 
@@ -17,7 +17,7 @@ class ECGAnalyzer:
         self.test_arff_path = test_arff_path
 
         self.mean_normal = None
-        self.best_eps = None
+        self.best_k = None
         self.scaler = None
         self.X_raw = None
         self.X_filt = None
@@ -25,8 +25,8 @@ class ECGAnalyzer:
         self.X_features = None
         self.final_labels = None
         self.normal_cluster_label = None
-        self.dbi_scores = None
-        self.valid_eps = None
+        self.silhouette_scores = None
+        self.valid_k = None
         self.y = None
         self.metrics = None
         self.normal_centroid_scaled = None
@@ -48,15 +48,15 @@ class ECGAnalyzer:
 
         self.X_features = get_correlation_features(self.X_filt, self.mean_normal)
 
-        (self.final_labels, self.dbi_scores,
-         self.valid_eps, self.best_eps, self.scaler) = ecg_dbscan(self.X_features)
+        (self.final_labels, self.silhouette_scores,
+         self.valid_k, self.best_k, self.scaler) = ecg_hierarchical_clustering(self.X_features)
 
         self.normal_cluster_label = get_normal_cluster_label(
             self.final_labels, self.X_features
         )
 
         normal_cluster_mask = self.final_labels == self.normal_cluster_label
-        irregular_cluster_mask = (self.final_labels != self.normal_cluster_label) & (self.final_labels != -1)
+        irregular_cluster_mask = self.final_labels != self.normal_cluster_label
 
         X_feat_scaled = self.scaler.transform(self.X_features)
         self.normal_centroid_scaled = X_feat_scaled[normal_cluster_mask].mean(axis=0)
@@ -96,13 +96,7 @@ class ECGAnalyzer:
             })
 
     def _classify_features(self, X_features_new):
-        """Nearest-centroid classification in scaled feature space.
-
-        Assigns each signal to whichever DBSCAN cluster centroid (normal vs
-        irregular) it is closest to.  This generalises correctly to new data
-        unlike the eps-threshold approach, which is too tight for points near
-        the cluster boundary.
-        """
+        """Nearest-centroid classification in scaled feature space."""
         X_scaled = self.scaler.transform(X_features_new)
         dist_normal = np.linalg.norm(X_scaled - self.normal_centroid_scaled, axis=1)
         dist_irregular = np.linalg.norm(X_scaled - self.irregular_centroid_scaled, axis=1)
@@ -162,10 +156,10 @@ class ECGAnalyzer:
         )
 
         return {
-            'eps_sweep': {
-                'eps_values': list(self.valid_eps),
-                'dbi_scores': list(self.dbi_scores),
-                'best_eps': float(self.best_eps),
+            'k_sweep': {
+                'k_values': list(self.valid_k),
+                'silhouette_scores': list(self.silhouette_scores),
+                'best_k': int(self.best_k),
             },
             'normal_template': {
                 'mean_signal': self.mean_normal.tolist(),
@@ -189,5 +183,5 @@ class ECGAnalyzer:
                 'irregular': self.X_features[irregular_mask, 0].tolist(),
             },
             'metrics': self.metrics,
-            'best_eps': float(self.best_eps),
+            'best_k': int(self.best_k),
         }
