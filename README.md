@@ -15,9 +15,10 @@ By: Chan Abay-abay & Marlex Manalili
 5. [Hierarchical Clustering & Hyperparameter Sweep](#hierarchical-clustering--hyperparameter-sweep)
 6. [Inference: Nearest-Centroid Classification](#inference-nearest-centroid-classification)
 7. [Evaluation Metrics](#evaluation-metrics)
-8. [Project Structure](#project-structure)
-9. [Running the App](#running-the-app)
-10. [Tech Stack](#tech-stack)
+8. [Frontend UI](#frontend-ui)
+9. [Project Structure](#project-structure)
+10. [Running the App](#running-the-app)
+11. [Tech Stack](#tech-stack)
 
 ---
 
@@ -31,7 +32,7 @@ The goal is to detect anomalous ECG heartbeats **without using labels during tra
 4. Identifies the "normal" cluster as the one with the highest mean R² — high similarity to the normal template.
 5. At inference time, assigns a new signal to the closest cluster centroid (normal vs. irregular) in scaled feature space.
 
-The frontend visualises each step of the pipeline interactively, including the Silhouette Score sweep, the normal template, the cluster scatter plot, morphology comparison, and a step-by-step algorithm walkthrough for any uploaded or sample signal.
+The frontend visualises each step of the pipeline interactively across six charts (Silhouette Score sweep, normal template, R² distribution, cluster scatter, morphology comparison, R² strip plot) and a five-step algorithm walkthrough for any uploaded or sample signal. Every chart and walkthrough step includes a plain-English tooltip explaining what is shown and how to interpret it.
 
 ---
 
@@ -197,6 +198,37 @@ Training set performance with optimal `k = 3`:
 
 ---
 
+## Frontend UI
+
+### Visualization Charts
+
+Six interactive Plotly charts are displayed in a 2-column grid. Each has an **ⓘ info tooltip** (hover the icon next to the title) explaining what the chart shows and how to read it in plain terms.
+
+| # | Chart | What it shows |
+|---|-------|---------------|
+| 1 | Silhouette Score vs K | Hyperparameter sweep — how well-separated each K value's clusters are; red line = optimal K |
+| 2 | Normal Database Template | Mean healthy heartbeat (blue) overlaid on 50 individual normal beats (grey) |
+| 3 | R² Similarity Distribution | Histogram of how closely every training signal matches the normal template |
+| 4 | Hierarchical Clusters | 2D scatter of every training beat by R² and variance; blue = Normal, red = Irregular |
+| 5 | Morphology Comparison | Shape overlay of the normal template vs the currently selected/uploaded signal |
+| 6 | R² Values: Normal vs Irregular | Box-and-dot plot of R² scores split by class, showing the separation between groups |
+
+Charts 3 and 6 are rendered taller than the others because they have no legends, giving more space to the data area.
+
+### Algorithm Walkthrough
+
+After selecting a sample or uploading a file, a five-step interactive walkthrough appears. Each step has a **"How to read this ⓘ"** tooltip inside the content area.
+
+| Step | Content |
+|------|---------|
+| 1. Upload | Raw unprocessed ECG signal as recorded |
+| 2. Filtered | Bandpass-filtered signal (blue) overlaid on the raw signal (faded), showing noise removal |
+| 3. Features | R² and Variance values computed for this signal |
+| 4. Clustering | Star marker showing where this signal sits in the 2D feature space |
+| 5. Result | Final Normal / Irregular classification with ground truth comparison for sample signals |
+
+---
+
 ## Project Structure
 
 ```
@@ -233,12 +265,13 @@ SignalsAndSystems-Final/
         │   └── ecg.ts            # TypeScript interfaces
         └── components/
             ├── Header.tsx
-            ├── Dashboard.tsx     # Layout: Upload → Graphs → Results → Walkthrough
-            ├── SignalUpload.tsx   # Drag-and-drop upload + sample signal buttons
-            ├── VisualizationGrid.tsx  # 6 Plotly charts (silhouette sweep, clusters, morphology…)
-            ├── ResultsPanel.tsx  # 2-column metrics + confusion matrix
-            ├── AlgorithmWalkthrough.tsx  # Step-by-step signal analysis view
-            └── Plot.tsx          # Plotly.js wrapper (replaces react-plotly.js for React 19)
+            ├── Dashboard.tsx          # Layout: Upload → Graphs → Results → Walkthrough
+            ├── SignalUpload.tsx        # Drag-and-drop upload + sample signal buttons
+            ├── VisualizationGrid.tsx  # 6 Plotly charts, each with an info tooltip
+            ├── ResultsPanel.tsx       # 2-column metrics + confusion matrix
+            ├── AlgorithmWalkthrough.tsx  # 5-step walkthrough, each step has an info tooltip
+            ├── InfoTooltip.tsx        # Shared hover tooltip component (ⓘ icon)
+            └── Plot.tsx               # Plotly.js wrapper (replaces react-plotly.js for React 19)
 ```
 
 ---
