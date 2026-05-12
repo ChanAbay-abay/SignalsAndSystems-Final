@@ -1,0 +1,172 @@
+import numpy as np
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+)
+
+from utils.signal_processing import bandpass_filter, get_correlation_features
+from utils.clustering import ecg_dbscan, apply_dbscan, get_normal_cluster_label
+from utils.data_loader import load_arff
+
+
+_SAMPLE_COUNT = 10  # number of sample signals exposed (5 normal + 5 irregular)
+
+
+class ECGAnalyzer:
+    def __init__(self, train_arff_path, test_arff_path=None):
+        self.train_arff_path = train_arff_path
+        self.test_arff_path = test_arff_path
+
+        self.mean_normal = None
+        self.best_eps = None
+        self.scaler = None
+        self.X_raw = None
+        self.X_filt = None
+        self.X_normal = None
+        self.X_features = None
+        self.final_labels = None
+        self.normal_cluster_label = None
+        self.dbi_scores = None
+        self.valid_eps = None
+        self.y = None
+        self.metrics = None
+
+        # Pre-loaded sample signals from test set
+        self._samples = []
+
+    def fit(self):
+        X_raw, y = load_arff(self.train_arff_path)
+        self.X_raw = X_raw
+        self.y = y
+
+        self.X_filt = np.array([bandpass_filter(row) for row in X_raw])
+
+        normal_mask = (y == '1')
+        self.X_normal = self.X_filt[normal_mask]
+        self.mean_normal = np.mean(self.X_normal, axis=0)
+
+        self.X_features = get_correlation_features(self.X_filt, self.mean_normal)
+
+        (self.final_labels, self.dbi_scores,
+         self.valid_eps, self.best_eps, self.scaler) = ecg_dbscan(self.X_features)
+
+        self.normal_cluster_label = get_normal_cluster_label(
+            self.final_labels, self.X_features
+        )
+
+        y_true = (y == '1').astype(int)
+        y_pred = np.zeros(len(self.final_labels), dtype=int)
+        if self.normal_cluster_label is not None:
+            y_pred[self.final_labels == self.normal_cluster_label] = 1
+
+        self.metrics = self._compute_metrics(y_true, y_pred)
+        self._load_samples()
+
+    def _load_samples(self):
+        if not self.test_arff_path:
+            return
+        try:
+            X_test, y_test = load_arff(self.test_arff_path)
+        except Exception:
+            return
+
+        normal_idx = np.where(y_test == '1')[0]
+        irregular_idx = np.where(y_test != '1')[0]
+
+        chosen = list(normal_idx[:5]) + list(irregular_idx[:5])
+        for i, idx in enumerate(chosen):
+            label = y_test[idx]
+            self._samples.append({
+                'id': i,
+                'name': f"Sample {i + 1} ({'Normal' if label == '1' else 'Irregular'})",
+                'ground_truth': label,
+                'signal': X_test[idx].tolist(),
+            })
+
+    def _compute_metrics(self, y_true, y_pred):
+        return {
+            'accuracy': float(accuracy_score(y_true, y_pred)),
+            'precision': float(precision_score(y_true, y_pred, pos_label=1, zero_division=0)),
+            'recall': float(recall_score(y_true, y_pred, pos_label=1, zero_division=0)),
+            'f1': float(f1_score(y_true, y_pred, pos_label=1, zero_division=0)),
+            'confusion_matrix': confusion_matrix(y_true, y_pred).tolist(),
+        }
+
+    def get_sample_signals(self):
+        return [{'id': s['id'], 'name': s['name'], 'ground_truth': s['ground_truth']}
+                for s in self._samples]
+
+    def analyze_sample(self, sample_id):
+        sample = next((s for s in self._samples if s['id'] == sample_id), None)
+        if sample is None:
+            raise ValueError(f"Sample {sample_id} not found")
+        X_raw = np.array(sample['signal']).reshape(1, -1)
+        y = np.array([sample['ground_truth']])
+        result = self.analyze_signals(X_raw, y)
+        result['sample_name'] = sample['name']
+        return result
+
+    def analyze_signals(self, X_raw_input, y_input=None):
+        X_filt = np.array([bandpass_filter(row) for row in X_raw_input])
+        X_features = get_correlation_features(X_filt, self.mean_normal)
+        labels = apply_dbscan(X_features, self.scaler, self.best_eps)
+        normal_lbl = get_normal_cluster_label(labels, X_features)
+
+        y_pred = np.zeros(len(labels), dtype=int)
+        if normal_lbl is not None:
+            y_pred[labels == normal_lbl] = 1
+
+        result = {
+            'labels': labels.tolist(),
+            'features': X_features.tolist(),
+            'normal_cluster_label': int(normal_lbl) if normal_lbl is not None else None,
+            'signals_raw': X_raw_input.tolist(),
+            'signals_filtered': X_filt.tolist(),
+            'predictions': y_pred.tolist(),
+        }
+
+        if y_input is not None:
+            y_true = (np.array(y_input) == '1').astype(int)
+            result['metrics'] = self._compute_metrics(y_true, y_pred)
+            result['ground_truth'] = y_true.tolist()
+
+        return result
+
+    def get_training_visualization_data(self):
+        normal_mask = self.final_labels == self.normal_cluster_label
+        irregular_mask = ~normal_mask
+
+        irreg_indices = np.where(irregular_mask)[0]
+        sample_irreg_signal = (
+            self.X_filt[irreg_indices[0]].tolist() if len(irreg_indices) > 0 else []
+        )
+
+        return {
+            'eps_sweep': {
+                'eps_values': list(self.valid_eps),
+                'dbi_scores': list(self.dbi_scores),
+                'best_eps': float(self.best_eps),
+            },
+            'normal_template': {
+                'mean_signal': self.mean_normal.tolist(),
+                'normal_signals_sample': self.X_normal[:50].tolist(),
+            },
+            'r_squared_distribution': {
+                'values': self.X_features[:, 0].tolist(),
+            },
+            'clusters': {
+                'r_squared': self.X_features[:, 0].tolist(),
+                'variance': self.X_features[:, 1].tolist(),
+                'labels': self.final_labels.tolist(),
+                'normal_cluster_label': int(self.normal_cluster_label) if self.normal_cluster_label is not None else None,
+            },
+            'morphology': {
+                'mean_normal': self.mean_normal.tolist(),
+                'sample_irregular': sample_irreg_signal,
+            },
+            'r_squared_strip': {
+                'normal': self.X_features[normal_mask, 0].tolist(),
+                'irregular': self.X_features[irregular_mask, 0].tolist(),
+            },
+            'metrics': self.metrics,
+            'best_eps': float(self.best_eps),
+        }
