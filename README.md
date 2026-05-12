@@ -2,6 +2,8 @@
 
 Unsupervised ECG heartbeat classification using Hierarchical Agglomerative Clustering and Pearson correlation features, built on the ECG5000 dataset. The system trains entirely without labels, identifies a "normal" heartbeat cluster, and classifies new signals at inference time using nearest-centroid assignment.
 
+By: Chan Abay-abay & Marlex Manalili
+
 ---
 
 ## Table of Contents
@@ -38,19 +40,19 @@ The frontend visualises each step of the pipeline interactively, including the S
 **ECG5000** — a standard ECG time-series benchmark derived from the PhysioNet dataset.
 
 | Split | Samples | Signal Length |
-|-------|---------|---------------|
+| ----- | ------- | ------------- |
 | Train | 500     | 140 samples   |
 | Test  | 4,500   | 140 samples   |
 
 Each signal is one heartbeat window of 140 samples, recorded at approximately 250 Hz (giving a ~560 ms window). The dataset has 5 original class labels:
 
-| Class | Meaning         | Train Count |
-|-------|-----------------|-------------|
-| 1     | Normal          | 292         |
-| 2     | R-on-T PVC      | 177         |
-| 3     | PVC             | 10          |
-| 4     | SP/EB           | 19          |
-| 5     | UB/FB           | 2           |
+| Class | Meaning    | Train Count |
+| ----- | ---------- | ----------- |
+| 1     | Normal     | 292         |
+| 2     | R-on-T PVC | 177         |
+| 3     | PVC        | 10          |
+| 4     | SP/EB      | 19          |
+| 5     | UB/FB      | 2           |
 
 For this project, class `1` is treated as **Normal** and all other classes as **Irregular**. The model never sees these labels during training — they are only used post-hoc to evaluate performance.
 
@@ -120,6 +122,7 @@ Variance captures the amplitude spread / energy of the heartbeat. Abnormal beats
 ### Why Hierarchical Agglomerative Clustering?
 
 Hierarchical Agglomerative Clustering (HAC) with Ward linkage is chosen because:
+
 - It builds a full hierarchy of merges (dendrogram), making the cluster structure interpretable
 - Ward linkage minimises within-cluster variance at each merge step, producing compact, well-separated clusters
 - The number of clusters `k` can be selected after the fact by cutting the dendrogram, enabling a principled sweep without re-running the algorithm
@@ -174,23 +177,23 @@ This generalises correctly to unseen data because the decision boundary is defin
 
 Predictions are evaluated against the ground-truth class labels (1 = Normal, other = Irregular):
 
-| Metric    | Definition |
-|-----------|-----------|
-| Accuracy  | (TP + TN) / total |
+| Metric    | Definition                                                         |
+| --------- | ------------------------------------------------------------------ |
+| Accuracy  | (TP + TN) / total                                                  |
 | Precision | TP / (TP + FP) — of predicted Normal, how many are actually Normal |
-| Recall    | TP / (TP + FN) — of actual Normal signals, how many were caught |
-| F1-Score  | Harmonic mean of Precision and Recall |
+| Recall    | TP / (TP + FN) — of actual Normal signals, how many were caught    |
+| F1-Score  | Harmonic mean of Precision and Recall                              |
 
 A 2×2 confusion matrix is always returned with `labels=[0, 1]` to ensure consistent layout even when a test set contains only one class.
 
 Training set performance with optimal `k = 3`:
 
-| Metric    | Score  |
-|-----------|--------|
-| Accuracy  | ~93%   |
-| Precision | ~99%   |
-| Recall    | ~88%   |
-| F1-Score  | ~93%   |
+| Metric    | Score |
+| --------- | ----- |
+| Accuracy  | ~93%  |
+| Precision | ~99%  |
+| Recall    | ~88%  |
+| F1-Score  | ~93%  |
 
 ---
 
@@ -254,6 +257,7 @@ SignalsAndSystems-Final/
 ```
 
 This script:
+
 1. Creates a Python virtual environment in `backend/.venv` if it doesn't exist
 2. Installs Python dependencies from `backend/requirements.txt`
 3. Starts the Flask backend on `http://localhost:5001` — the model trains on ECG5000_TRAIN.arff at startup (~5 seconds)
@@ -262,12 +266,12 @@ This script:
 
 ### API Endpoints
 
-| Method | Path                  | Description                                      |
-|--------|-----------------------|--------------------------------------------------|
-| GET    | `/api/health`         | Health check                                     |
-| GET    | `/api/training-data`  | Returns all visualisation data from training     |
-| GET    | `/api/sample-signals` | Returns the 10 pre-loaded test samples           |
-| POST   | `/api/analyze`        | Analyse an uploaded file or a sample by ID       |
+| Method | Path                  | Description                                  |
+| ------ | --------------------- | -------------------------------------------- |
+| GET    | `/api/health`         | Health check                                 |
+| GET    | `/api/training-data`  | Returns all visualisation data from training |
+| GET    | `/api/sample-signals` | Returns the 10 pre-loaded test samples       |
+| POST   | `/api/analyze`        | Analyse an uploaded file or a sample by ID   |
 
 The `/api/analyze` endpoint accepts either a multipart file upload (`.arff` or `.csv`) or a JSON body `{ "sample_id": N }`.
 
@@ -276,12 +280,14 @@ The `/api/analyze` endpoint accepts either a multipart file upload (`.arff` or `
 ## Tech Stack
 
 **Backend**
+
 - Python / Flask — REST API
 - NumPy / SciPy — signal filtering, feature computation, and Ward linkage (`scipy.cluster.hierarchy`)
 - scikit-learn — StandardScaler, Silhouette Score, evaluation metrics
 - pandas — ARFF/CSV parsing
 
 **Frontend**
+
 - React 19 + TypeScript
 - Vite + Tailwind CSS v4
 - Plotly.js (`plotly.js-dist-min`) — interactive charts via a custom React wrapper
