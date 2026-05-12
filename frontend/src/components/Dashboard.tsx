@@ -9,7 +9,7 @@ export default function Dashboard() {
   const { loading } = useECGStore()
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans">
       <Header />
       <div className="max-w-7xl mx-auto px-4 py-6">
         {loading && (
@@ -22,21 +22,9 @@ export default function Dashboard() {
 
         {!loading && (
           <div className="flex flex-col gap-6">
-            {/* Top row: sidebar + plots */}
-            <div className="flex gap-6">
-              {/* Left sidebar */}
-              <div className="w-72 shrink-0 flex flex-col gap-4">
-                <SignalUpload />
-                <ResultsPanel />
-              </div>
-
-              {/* Main visualization area */}
-              <div className="flex-1 min-w-0">
-                <VisualizationGrid />
-              </div>
-            </div>
-
-            {/* Walkthrough */}
+            <SignalUpload />
+            <VisualizationGrid />
+            <ResultsPanel />
             <AlgorithmWalkthrough />
           </div>
         )}

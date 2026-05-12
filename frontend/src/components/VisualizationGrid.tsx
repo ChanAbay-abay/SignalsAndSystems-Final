@@ -1,4 +1,4 @@
-import Plot from 'react-plotly.js'
+import Plot from './Plot'
 import { useECGStore } from '../store/ecgStore'
 import type { TrainingData, AnalysisResult } from '../types/ecg'
 
@@ -11,9 +11,19 @@ const baseLayout: Partial<Plotly.Layout> = {
   plot_bgcolor: PLOT_BG,
   paper_bgcolor: PAPER_BG,
   font: { color: FONT_COLOR, size: 11 },
-  margin: { t: 40, b: 50, l: 55, r: 20 },
+  margin: { t: 40, b: 120, l: 55, r: 20 },
   xaxis: { gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
   yaxis: { gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
+  legend: {
+    orientation: 'h',
+    yanchor: 'top',
+    y: -0.18,
+    xanchor: 'center',
+    x: 0.5,
+    font: { color: FONT_COLOR, size: 11 },
+    bgcolor: 'rgba(0,0,0,0)',
+    borderwidth: 0,
+  },
 }
 
 function PlotCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -50,8 +60,7 @@ function EpsSweepPlot({ data }: { data: TrainingData['eps_sweep'] }) {
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'Epsilon' },
         yaxis: { ...baseLayout.yaxis, title: 'Davies-Bouldin Index' },
-        legend: { font: { color: FONT_COLOR, size: 10 } },
-        height: 240,
+        height: 380,
       }}
       config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%' }}
@@ -86,8 +95,7 @@ function NormalTemplatePlot({ data }: { data: TrainingData['normal_template'] })
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'Sample Index' },
         yaxis: { ...baseLayout.yaxis, title: 'Amplitude' },
-        legend: { font: { color: FONT_COLOR, size: 10 } },
-        height: 240,
+        height: 380,
       }}
       config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%' }}
@@ -111,7 +119,7 @@ function RSquaredHistogram({ values }: { values: number[] }) {
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'R² (Similarity)' },
         yaxis: { ...baseLayout.yaxis, title: 'Frequency' },
-        height: 240,
+        height: 380,
         bargap: 0.05,
       }}
       config={{ responsive: true, displayModeBar: false }}
@@ -180,8 +188,7 @@ function ClustersScatterPlot({
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'R² (Similarity)' },
         yaxis: { ...baseLayout.yaxis, title: 'Variance (Energy)' },
-        legend: { font: { color: FONT_COLOR, size: 9 } },
-        height: 240,
+        height: 380,
       }}
       config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%' }}
@@ -237,8 +244,7 @@ function MorphologyPlot({
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'Sample Index' },
         yaxis: { ...baseLayout.yaxis, title: 'Amplitude' },
-        legend: { font: { color: FONT_COLOR, size: 10 } },
-        height: 240,
+        height: 380,
       }}
       config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%' }}
@@ -311,8 +317,7 @@ function RSquaredStripPlot({
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'Heartbeat Type' },
         yaxis: { ...baseLayout.yaxis, title: 'R² (Similarity)' },
-        legend: { font: { color: FONT_COLOR, size: 10 } },
-        height: 240,
+        height: 380,
         showlegend: false,
       }}
       config={{ responsive: true, displayModeBar: false }}
@@ -333,7 +338,7 @@ export default function VisualizationGrid() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <PlotCard title="1. Hyperparameter Sweep: DBI vs EPS">
         <EpsSweepPlot data={trainingData.eps_sweep} />
       </PlotCard>

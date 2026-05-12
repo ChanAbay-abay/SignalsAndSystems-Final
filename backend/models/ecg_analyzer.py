@@ -4,7 +4,7 @@ from sklearn.metrics import (
 )
 
 from utils.signal_processing import bandpass_filter, get_correlation_features
-from utils.clustering import ecg_dbscan, apply_dbscan, get_normal_cluster_label
+from utils.clustering import ecg_dbscan, get_normal_cluster_label
 from utils.data_loader import load_arff
 
 
@@ -29,6 +29,8 @@ class ECGAnalyzer:
         self.valid_eps = None
         self.y = None
         self.metrics = None
+        self.normal_centroid_scaled = None
+        self.irregular_centroid_scaled = None
 
         # Pre-loaded sample signals from test set
         self._samples = []
@@ -51,6 +53,17 @@ class ECGAnalyzer:
 
         self.normal_cluster_label = get_normal_cluster_label(
             self.final_labels, self.X_features
+        )
+
+        normal_cluster_mask = self.final_labels == self.normal_cluster_label
+        irregular_cluster_mask = (self.final_labels != self.normal_cluster_label) & (self.final_labels != -1)
+
+        X_feat_scaled = self.scaler.transform(self.X_features)
+        self.normal_centroid_scaled = X_feat_scaled[normal_cluster_mask].mean(axis=0)
+        self.irregular_centroid_scaled = (
+            X_feat_scaled[irregular_cluster_mask].mean(axis=0)
+            if irregular_cluster_mask.any()
+            else -self.normal_centroid_scaled
         )
 
         y_true = (y == '1').astype(int)
@@ -82,13 +95,26 @@ class ECGAnalyzer:
                 'signal': X_test[idx].tolist(),
             })
 
+    def _classify_features(self, X_features_new):
+        """Nearest-centroid classification in scaled feature space.
+
+        Assigns each signal to whichever DBSCAN cluster centroid (normal vs
+        irregular) it is closest to.  This generalises correctly to new data
+        unlike the eps-threshold approach, which is too tight for points near
+        the cluster boundary.
+        """
+        X_scaled = self.scaler.transform(X_features_new)
+        dist_normal = np.linalg.norm(X_scaled - self.normal_centroid_scaled, axis=1)
+        dist_irregular = np.linalg.norm(X_scaled - self.irregular_centroid_scaled, axis=1)
+        return (dist_normal <= dist_irregular).astype(int)
+
     def _compute_metrics(self, y_true, y_pred):
         return {
             'accuracy': float(accuracy_score(y_true, y_pred)),
             'precision': float(precision_score(y_true, y_pred, pos_label=1, zero_division=0)),
             'recall': float(recall_score(y_true, y_pred, pos_label=1, zero_division=0)),
             'f1': float(f1_score(y_true, y_pred, pos_label=1, zero_division=0)),
-            'confusion_matrix': confusion_matrix(y_true, y_pred).tolist(),
+            'confusion_matrix': confusion_matrix(y_true, y_pred, labels=[0, 1]).tolist(),
         }
 
     def get_sample_signals(self):
@@ -108,17 +134,12 @@ class ECGAnalyzer:
     def analyze_signals(self, X_raw_input, y_input=None):
         X_filt = np.array([bandpass_filter(row) for row in X_raw_input])
         X_features = get_correlation_features(X_filt, self.mean_normal)
-        labels = apply_dbscan(X_features, self.scaler, self.best_eps)
-        normal_lbl = get_normal_cluster_label(labels, X_features)
-
-        y_pred = np.zeros(len(labels), dtype=int)
-        if normal_lbl is not None:
-            y_pred[labels == normal_lbl] = 1
+        y_pred = self._classify_features(X_features)
 
         result = {
-            'labels': labels.tolist(),
+            'labels': y_pred.tolist(),
             'features': X_features.tolist(),
-            'normal_cluster_label': int(normal_lbl) if normal_lbl is not None else None,
+            'normal_cluster_label': 1,
             'signals_raw': X_raw_input.tolist(),
             'signals_filtered': X_filt.tolist(),
             'predictions': y_pred.tolist(),

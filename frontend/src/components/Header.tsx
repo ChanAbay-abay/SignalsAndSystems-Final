@@ -6,9 +6,12 @@ export default function Header() {
           ECG Anomaly Detection System
         </h1>
         <p className="text-slate-400 text-sm mt-1">
-          Unsupervised DBSCAN clustering with Pearson correlation features — ECG5000 dataset
+          Unsupervised DBSCAN clustering with Pearson correlation features —
+          ECG5000 dataset
+          <br />
+          By Christian Abay-abay & Marlex Manalili
         </p>
       </div>
     </header>
-  )
+  );
 }

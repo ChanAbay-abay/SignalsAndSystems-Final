@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import Plot from 'react-plotly.js'
+import Plot from './Plot'
 import { useECGStore } from '../store/ecgStore'
 
 const PLOT_BG = '#1e293b'
@@ -11,10 +11,20 @@ const baseLayout: Partial<Plotly.Layout> = {
   plot_bgcolor: PLOT_BG,
   paper_bgcolor: PAPER_BG,
   font: { color: FONT_COLOR, size: 11 },
-  margin: { t: 20, b: 50, l: 55, r: 20 },
+  margin: { t: 20, b: 100, l: 55, r: 20 },
   xaxis: { gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
   yaxis: { gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
-  height: 220,
+  height: 280,
+  legend: {
+    orientation: 'h',
+    yanchor: 'top',
+    y: -0.22,
+    xanchor: 'center',
+    x: 0.5,
+    font: { color: FONT_COLOR, size: 11 },
+    bgcolor: 'rgba(0,0,0,0)',
+    borderwidth: 0,
+  },
 }
 
 const STEPS = ['Upload', 'Filtered', 'Features', 'Clustering', 'Result']
@@ -55,7 +65,7 @@ export default function AlgorithmWalkthrough() {
         { x, y: rawSig, type: 'scatter', mode: 'lines', line: { color: '#475569', width: 1 }, name: 'Raw', opacity: 0.4 },
         { x, y: filtSig, type: 'scatter', mode: 'lines', line: { color: '#38bdf8', width: 2 }, name: 'Filtered' },
       ]}
-      layout={{ ...baseLayout, xaxis: { ...baseLayout.xaxis, title: 'Sample' }, yaxis: { ...baseLayout.yaxis, title: 'Amplitude' }, legend: { font: { color: FONT_COLOR } } }}
+      layout={{ ...baseLayout, xaxis: { ...baseLayout.xaxis, title: 'Sample' }, yaxis: { ...baseLayout.yaxis, title: 'Amplitude' } }}
       config={{ responsive: true, displayModeBar: false }}
       style={{ width: '100%' }}
     />,
@@ -90,7 +100,6 @@ export default function AlgorithmWalkthrough() {
         ...baseLayout,
         xaxis: { ...baseLayout.xaxis, title: 'R² (Similarity)', range: [0, 1] },
         yaxis: { ...baseLayout.yaxis, title: 'Variance' },
-        legend: { font: { color: FONT_COLOR } },
         annotations: [{
           x: feat[0], y: feat[1],
           text: isNormal ? 'Normal' : 'Irregular',
