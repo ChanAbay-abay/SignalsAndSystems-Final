@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+__pycache__/
+.venv/
+.env
+.DS_Store
+IMPLEMENTATION_PLAN.md
