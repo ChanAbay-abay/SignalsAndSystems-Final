@@ -49,7 +49,7 @@ function MetricsBlock({ metrics, title }: { metrics: Metrics; title: string }) {
   return (
     <div className="bg-slate-700/50 rounded-xl p-5 space-y-4">
       <h3 className="text-white font-semibold text-base">{title}</h3>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricCard label="Accuracy" value={metrics.accuracy} />
         <MetricCard label="Precision" value={metrics.precision} />
         <MetricCard label="Recall" value={metrics.recall} />
@@ -73,10 +73,10 @@ export default function ResultsPanel() {
 
   return (
     <div className="bg-slate-800 rounded-xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-white font-semibold text-lg">Results</h2>
         {analysisResult && (
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm">
             <span className="text-slate-400">
               Source:{' '}
               <span className="text-slate-200">
@@ -92,7 +92,7 @@ export default function ResultsPanel() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {uploadMetrics ? (
           <MetricsBlock metrics={uploadMetrics} title="Upload Metrics" />
         ) : (

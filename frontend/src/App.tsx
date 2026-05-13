@@ -6,8 +6,7 @@ export default function App() {
   const { fetchTrainingData, fetchSampleSignals } = useSignalApi()
 
   useEffect(() => {
-    fetchTrainingData()
-    fetchSampleSignals()
+    fetchTrainingData().then(fetchSampleSignals)
   }, [])
 
   return <Dashboard />
