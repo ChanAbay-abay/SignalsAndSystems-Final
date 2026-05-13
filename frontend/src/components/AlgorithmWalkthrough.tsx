@@ -49,7 +49,7 @@ function StepSection({ info, children }: { info: string; children: React.ReactNo
     <div>
       <div className="flex items-center justify-end gap-1.5 mb-2 text-slate-500 text-xs">
         <span>How to read this</span>
-        <InfoTooltip text={info} />
+        <InfoTooltip text={info} align="right" />
       </div>
       {children}
     </div>

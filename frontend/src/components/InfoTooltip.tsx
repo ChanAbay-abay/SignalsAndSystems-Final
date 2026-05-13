@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function InfoTooltip({ text }: { text: string }) {
+export default function InfoTooltip({ text, align = 'left' }: { text: string; align?: 'left' | 'right' }) {
   const [open, setOpen] = useState(false)
   return (
     <div
@@ -15,9 +15,9 @@ export default function InfoTooltip({ text }: { text: string }) {
         i
       </button>
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-72 p-3 bg-slate-700 border border-slate-500 rounded-lg text-xs text-slate-200 leading-relaxed z-50 shadow-2xl pointer-events-none">
+        <div className={`absolute bottom-full mb-2 w-72 p-3 bg-slate-700 border border-slate-500 rounded-lg text-xs text-slate-200 leading-relaxed z-50 shadow-2xl pointer-events-none ${align === 'right' ? 'right-0' : 'left-0'}`}>
           {text}
-          <div className="absolute top-full left-3 border-4 border-transparent border-t-slate-500" />
+          <div className={`absolute top-full border-4 border-transparent border-t-slate-500 ${align === 'right' ? 'right-3' : 'left-3'}`} />
         </div>
       )}
     </div>
