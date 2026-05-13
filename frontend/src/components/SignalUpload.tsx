@@ -23,7 +23,7 @@ export default function SignalUpload() {
     <div className="bg-slate-800 rounded-xl p-5">
       <h2 className="text-white font-semibold text-lg mb-4">Analyze Signal</h2>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
         {/* Left: sample signals */}
         <div className="flex-1 min-w-0">
           <p className="text-slate-400 text-xs mb-3 uppercase tracking-wide">Sample signals</p>
@@ -50,7 +50,7 @@ export default function SignalUpload() {
         </div>
 
         {/* Right: upload */}
-        <div className="w-72 shrink-0 flex flex-col gap-3">
+        <div className="w-full sm:w-72 sm:shrink-0 flex flex-col gap-3">
           <div
             className={`flex-1 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors flex flex-col items-center justify-center ${
               dragOver ? 'border-blue-400 bg-blue-950/30' : 'border-slate-600 hover:border-slate-400'

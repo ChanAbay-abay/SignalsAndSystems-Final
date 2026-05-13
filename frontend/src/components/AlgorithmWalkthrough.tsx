@@ -169,12 +169,12 @@ export default function AlgorithmWalkthrough() {
       <h2 className="text-white font-semibold text-lg mb-4">Algorithm Walkthrough</h2>
 
       {/* Step tabs */}
-      <div className="flex gap-1 mb-4">
+      <div className="flex flex-wrap gap-1 mb-4">
         {STEPS.map(({ label }, i) => (
           <button
             key={i}
             onClick={() => setStep(i)}
-            className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${
+            className={`flex-1 min-w-16 py-1.5 rounded text-xs font-medium transition-colors ${
               step === i
                 ? 'bg-blue-600 text-white'
                 : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
